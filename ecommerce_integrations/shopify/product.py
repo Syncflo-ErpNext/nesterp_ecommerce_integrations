@@ -66,6 +66,9 @@ class ShopifyProduct:
 		warehouse = self.setting.warehouse
 
 		if _has_variants(product_dict):
+			if self._link_variants_by_sku(product_dict):
+				return
+
 			self.has_variants = 1
 			attributes = self._create_attribute(product_dict)
 			self._create_item(product_dict, warehouse, 1, attributes)
@@ -74,6 +77,22 @@ class ShopifyProduct:
 		else:
 			product_dict["variant_id"] = product_dict["variants"][0]["id"]
 			self._create_item(product_dict, warehouse)
+
+	def _link_variants_by_sku(self, product_dict) -> bool:
+		"""Link every variant to the existing ERPNext item whose item_code equals its SKU.
+
+		Only when all variants match; otherwise items are created as before.
+		Returns True if linked.
+		"""
+		variants = product_dict.get("variants") or []
+		if not variants or not all(
+			v.get("sku") and frappe.db.exists("Item", {"item_code": v["sku"]}) for v in variants
+		):
+			return False
+
+		for v in variants:
+			_match_sku_and_link_item({"sku": v["sku"]}, product_dict["id"], v["id"])
+		return True
 
 	def _create_attribute(self, product_dict):
 		attribute = []
