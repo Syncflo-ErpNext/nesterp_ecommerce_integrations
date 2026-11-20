@@ -61,38 +61,29 @@ class ShopifyProduct:
 			self._make_item(product_dict)
 
 	def _make_item(self, product_dict):
-		_add_weight_details(product_dict)
+		"""Link each Shopify variant to the ERPNext item whose item_code equals its SKU.
 
-		warehouse = self.setting.warehouse
-
-		if _has_variants(product_dict):
-			if self._link_variants_by_sku(product_dict):
-				return
-
-			self.has_variants = 1
-			attributes = self._create_attribute(product_dict)
-			self._create_item(product_dict, warehouse, 1, attributes)
-			self._create_item_variants(product_dict, warehouse, attributes)
-
-		else:
-			product_dict["variant_id"] = product_dict["variants"][0]["id"]
-			self._create_item(product_dict, warehouse)
-
-	def _link_variants_by_sku(self, product_dict) -> bool:
-		"""Link every variant to the existing ERPNext item whose item_code equals its SKU.
-
-		Only when all variants match; otherwise items are created as before.
-		Returns True if linked.
+		Never creates items. If the ordered variant can't be linked, stop: the order stays
+		in the Ecommerce Integration Log until the SKU is fixed in Shopify and Retry is clicked.
 		"""
-		variants = product_dict.get("variants") or []
-		if not variants or not all(
-			v.get("sku") and frappe.db.exists("Item", {"item_code": v["sku"]}) for v in variants
-		):
-			return False
+		title = product_dict.get("title", "").strip()
+		problems = []
+		for v in product_dict.get("variants") or []:
+			if ecommerce_item.is_synced(MODULE_NAME, self.product_id, variant_id=str(v["id"])):
+				continue
 
-		for v in variants:
-			_match_sku_and_link_item({"sku": v["sku"]}, product_dict["id"], v["id"])
-		return True
+			name = f"{title} ({v['title']})" if v.get("title") not in (None, "Default Title") else title
+			sku = v.get("sku")
+			if not sku:
+				problems.append(_("{0}: no SKU in Shopify.").format(name))
+			elif not frappe.db.exists("Item", {"item_code": sku}):
+				problems.append(_("{0}: SKU {1} is not an ERPNext item code.").format(name, sku))
+			elif not _match_sku_and_link_item({"sku": sku}, self.product_id, v["id"]):
+				problems.append(_("{0}: SKU {1} is already linked to another Shopify product.").format(name, sku))
+
+		if not self.is_synced():
+			problems = problems or [_("{0}: could not be linked to an ERPNext item.").format(title)]
+			frappe.throw("\n".join([*problems, _("Fix this in Shopify, then click Retry on this log.")]))
 
 	def _create_attribute(self, product_dict):
 		attribute = []
