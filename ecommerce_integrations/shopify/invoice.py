@@ -1,6 +1,7 @@
 import frappe
 from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
 from frappe.utils import cint, cstr, getdate, nowdate
+from frappe.utils.synchronization import filelock
 
 from ecommerce_integrations.shopify.constants import (
 	ORDER_ID_FIELD,
@@ -12,9 +13,15 @@ from ecommerce_integrations.utils.taxation import copy_item_wise_tax_details
 
 
 def prepare_sales_invoice(payload, request_id=None):
-	from ecommerce_integrations.shopify.order import get_sales_order
+	from ecommerce_integrations.shopify.order import get_sales_order, sync_sales_order
 
 	order = payload
+
+	# orders/paid is the only order-creating webhook: a paid order with no Sales Order yet is imported now.
+	# One order at a time: a redelivered webhook waits here, then finds the Sales Order already made.
+	if not get_sales_order(cstr(order["id"])):
+		with filelock(f"shopify_order_{cstr(order['id'])}", timeout=120):
+			return sync_sales_order(order, request_id=request_id)
 
 	frappe.set_user("Administrator")
 	setting = frappe.get_doc(SETTING_DOCTYPE)

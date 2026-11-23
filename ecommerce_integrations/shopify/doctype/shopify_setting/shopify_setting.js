@@ -25,6 +25,32 @@ frappe.ui.form.on("Shopify Setting", {
 		});
 	},
 
+	load_shopify_customers: function (frm) {
+		if (frm.is_dirty()) {
+			frappe.msgprint(__("Save the settings first."));
+			return;
+		}
+		frappe.confirm(
+			__(
+				"Load every Shopify customer into ERPNext now? Each one is linked to an existing customer by email (match groups above) or created. It runs in the background.",
+			),
+			() => {
+				frappe
+					.call({
+						method: "ecommerce_integrations.shopify.customer.load_shopify_customers",
+						freeze: true,
+					})
+					.then((r) => {
+						frappe.msgprint(
+							__("Started. The result will be in Ecommerce Integration Log {0}.", [
+								r.message,
+							]),
+						);
+					});
+			},
+		);
+	},
+
 	refresh: function (frm) {
 		frm.add_custom_button(__("Import Products"), function () {
 			frappe.set_route("shopify-import-products");

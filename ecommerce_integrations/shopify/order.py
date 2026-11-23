@@ -41,6 +41,26 @@ def sync_sales_order(payload, request_id=None):
 	if frappe.db.get_value("Sales Order", filters={ORDER_ID_FIELD: cstr(order["id"])}):
 		create_shopify_log(status="Invalid", message="Sales order already exists, not synced")
 		return
+
+	if order.get("financial_status") != "paid":
+		create_shopify_log(
+			status="Invalid",
+			message=_("Order {0} is not paid yet. It is imported when Shopify marks it paid.").format(
+				order.get("name")
+			),
+		)
+		return
+
+	first_order_number = cint(frappe.db.get_single_value(SETTING_DOCTYPE, "first_order_number"))
+	if first_order_number and cint(order.get("order_number")) < first_order_number:
+		create_shopify_log(
+			status="Invalid",
+			message=_("Order {0} is before the first order number ({1}), so it is not imported.").format(
+				order.get("name"), first_order_number
+			),
+		)
+		return
+
 	try:
 		shopify_customer = order.get("customer") if order.get("customer") is not None else {}
 		shopify_customer["billing_address"] = order.get("billing_address", "")
@@ -48,10 +68,19 @@ def sync_sales_order(payload, request_id=None):
 		customer_id = shopify_customer.get("id")
 		if customer_id:
 			customer = ShopifyCustomer(customer_id=customer_id)
-			if not customer.is_synced():
+			email = shopify_customer.get("email") or order.get("email")
+			if not customer.is_synced() and not customer.link_existing_customer(email):
 				customer.sync_customer(customer=shopify_customer)
 			else:
 				customer.update_existing_addresses(shopify_customer)
+			if order.get("buyer_accepts_marketing"):
+				# a mailing-list problem must never hold a paid order
+				frappe.db.savepoint("shopify_marketing_consent")
+				try:
+					customer.record_marketing_consent()
+				except Exception:
+					frappe.db.rollback(save_point="shopify_marketing_consent")
+					frappe.log_error(title=_("Shopify: marketing consent not recorded"))
 
 		create_items_if_not_exist(order)
 
@@ -297,6 +326,9 @@ def get_tax_account_description(tax):
 def update_taxes_with_shipping_lines(taxes, shipping_lines, setting, items, taxes_inclusive=False):
 	"""Shipping lines represents the shipping details,
 	each such shipping detail consists of a list of tax_lines"""
+	if cint(setting.get("leave_shipping_off")):
+		return
+
 	shipping_as_item = cint(setting.add_shipping_as_item) and setting.shipping_item
 	for shipping_charge in shipping_lines:
 		if shipping_charge.get("price"):

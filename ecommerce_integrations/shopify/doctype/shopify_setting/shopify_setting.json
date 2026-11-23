@@ -23,6 +23,9 @@
   "default_customer",
   "column_break_14",
   "customer_group",
+  "customer_match_groups",
+  "marketing_consent_field",
+  "load_shopify_customers",
   "company_dependent_settings_section",
   "company",
   "cash_bank_account",
@@ -38,6 +41,8 @@
   "sync_sales_invoice",
   "add_shipping_as_item",
   "consolidate_taxes",
+  "leave_shipping_off",
+  "first_order_number",
   "section_break_22",
   "html_16",
   "taxes",
@@ -172,6 +177,24 @@
    "label": "Customer Group",
    "mandatory_depends_on": "eval:doc.enable_shopify",
    "options": "Customer Group"
+  },
+  {
+   "description": "One customer group per line. A Shopify buyer whose email matches an existing customer in one of these groups is linked to that customer; otherwise a new customer is created. Leave blank to always create a new customer.",
+   "fieldname": "customer_match_groups",
+   "fieldtype": "Small Text",
+   "label": "Match Existing Customers by Email in These Groups"
+  },
+  {
+   "description": "Fieldname of a Check field on Customer that is ticked when the buyer accepts marketing in Shopify, for example a mailing-list box. It is never unticked. Leave blank to skip.",
+   "fieldname": "marketing_consent_field",
+   "fieldtype": "Data",
+   "label": "Customer Field Ticked for Marketing Consent"
+  },
+  {
+   "description": "Links every Shopify customer to an ERPNext customer (by email, as above) or creates one. Runs in the background; the result is written to the Ecommerce Integration Log.",
+   "fieldname": "load_shopify_customers",
+   "fieldtype": "Button",
+   "label": "Load Shopify Customers"
   },
   {
    "description": "If individual warehouse are not mapped, the default warehouse is considered for transactions.",
@@ -413,6 +436,21 @@
    "label": "Consolidate Taxes in Order"
   },
   {
+   "default": "0",
+   "description": "Shipping charges and their tax are not added to the Sales Order.",
+   "fieldname": "leave_shipping_off",
+   "fieldtype": "Check",
+   "label": "Leave Shipping off Orders"
+  },
+  {
+   "default": "0",
+   "description": "Orders with a lower Shopify order number are not imported (go-live cut-off). 0 imports every order.",
+   "fieldname": "first_order_number",
+   "fieldtype": "Int",
+   "label": "First Order Number",
+   "non_negative": 1
+  },
+  {
    "description": "When no sales tax mapping is found this tax account will be used as the default account. This is only applied for Sales Tax. Any shipping related charges still need to be mapped separately.",
    "fieldname": "default_sales_tax_account",
    "fieldtype": "Link",
@@ -439,7 +477,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-28 14:52:59.407561",
+ "modified": "2026-11-20 14:00:00.000000",
  "modified_by": "Administrator",
  "module": "shopify",
  "name": "Shopify Setting",

@@ -11,8 +11,10 @@ API_VERSION = "2024-01"
 AUTH_METHOD_STATIC = "Static Token"
 AUTH_METHOD_OAUTH = "OAuth 2.0 Client Credentials"
 
+# No "orders/create": an order is imported only once it is paid (orders/paid creates the
+# Sales Order), so an unpaid order never reaches ERPNext and the two webhooks, which Shopify
+# sends a second apart, can't both create one.
 WEBHOOK_EVENTS = [
-	"orders/create",
 	"orders/paid",
 	"orders/fulfilled",
 	"orders/cancelled",

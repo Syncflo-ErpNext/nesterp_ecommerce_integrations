@@ -61,12 +61,12 @@ class EcommerceCustomer:
 			}
 		).insert(ignore_mandatory=True)
 
-	def create_customer_contact(self, contact: dict[str, str]) -> None:
+	def create_customer_contact(self, contact: dict[str, str]):
 		"""Create contact from dictionary containing fields used in Address doctype of ERPNext."""
 
 		customer_doc = self.get_customer_doc()
 
-		frappe.get_doc(
+		return frappe.get_doc(
 			{
 				"doctype": "Contact",
 				**contact,
