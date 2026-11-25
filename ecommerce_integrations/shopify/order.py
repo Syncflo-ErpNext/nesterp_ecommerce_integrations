@@ -42,7 +42,8 @@ def sync_sales_order(payload, request_id=None):
 		create_shopify_log(status="Invalid", message="Sales order already exists, not synced")
 		return
 
-	if order.get("financial_status") != "paid":
+	# "partially_refunded": a paid order held (e.g. bad SKU) and partly refunded before Retry still imports
+	if order.get("financial_status") not in ("paid", "partially_refunded"):
 		create_shopify_log(
 			status="Invalid",
 			message=_("Order {0} is not paid yet. It is imported when Shopify marks it paid.").format(
